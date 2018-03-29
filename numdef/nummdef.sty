@@ -1,0 +1,110 @@
+% I had a name clash with siunitx so just changed all num to numm
+
+% Save file as: NUMMDEF.STY             Source: FILESERV@SHSU.BITNET  
+%                    nummdef.sty
+                     %%%%%%%%%%
+
+% Prefixing a macro definition with \numm allows numbers at the end of
+% the command name ( At first glance )
+
+% eg:
+% \numm\def\x1{x one}
+% \numm\def\x2{x two}
+% \numm\newcommand{\y100}[1]{y one hundred, with argument #1}
+
+%                   David Carlisle
+%                   carlisle@uk.ac.man.cs
+
+% NOTE: this is a LaTeX style option, but may be used with plain TeX.
+%   \catcode`\@=11 \input nummdef.sty \catcode`\@=12
+
+% SEE NOTES AT END OF FILE
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\def\numm@def#1{\def\numm@name{#1}\edef\numm@str{\string #1}%
+  \expandafter\ifx\csname\numm@str{*}\endcsname
+                  \relax\numm@start\fi\futurelet\next\numm@d@f}%
+
+\def\numm@d@f{\ifx\next*\let\@tempa\numm@defA
+                \else\ifx\next\bgroup\let\@tempa\numm@defB
+                \else\let\@tempa\numm@defC \fi\fi\@tempa}%
+
+\newcount\numm@count
+\def\N{\number\numm@count}%
+
+\def\numm@defA*{\def\numm@{*}\numm@def@}%
+\def\numm@defB#1{\let\numm@=\N\numm@count= #1 \numm@def@}%
+\def\numm@defC{\let\numm@=\N\afterassignment\numm@def@\numm@count= }%
+
+\def\numm@def@{\expandafter\numm@define\csname\numm@str{\numm@}\endcsname}%
+
+%%
+\def\numm#1#2{\let\numm@define=#1\numm@def#2}%
+%%
+
+\def\numm@start{%
+  \expandafter\ifx\numm@name\@undefined\let\next\numm@st@rt
+  \else\def\next{\errmessage{nummdef: \numm@str\space is already defined}}%
+  \fi\next}%
+
+\def\numm@st@rt{\expandafter\def\csname\numm@str{*}\endcsname
+    {\errmessage{nummdef: \numm@str\N\space is not defined}}%
+ \expandafter\numm@use\numm@name}%
+
+\def\numm@use#1{\def#1{\edef\numm@str{\string #1}\futurelet\@tempa\numm@us@}}
+\def\numm@us@{%
+  \ifx\@tempa\bgroup\let\next\numm@useA\else\let\next\numm@useB\fi\next}
+
+\def\numm@useA#1{\numm@count= #1 \numm@use@}%
+\def\numm@useB{\afterassignment\numm@use@\numm@count= }%
+\def\numm@use@{\expandafter\ifx\csname\numm@str{\N}\endcsname\relax
+  \def\numm@{*}\else\let\numm@=\N\fi\csname\numm@str{\numm@}\endcsname}%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\endinput
+
+\numm takes a liberal view of where to put { } pairs. In particular
+the <number> and/or the command name may be surrounded by { }.
+
+The token after \numm must be a command for defining macros. If a \long
+(or \outer) def is required, first define, eg, \def\ldef{\long\def} as
+\numm\long\def ... does NOT work.
+All of the following definitions are equivalent:
+\numm\ldef\x10#1{x ten (#1)}              \numm\ldef\x{10}#1{x ten (#1)}
+\numm\ldef\x{"A}#1{x ten (#1)}            \numm\ldef\x'12#1{x ten (#1)}
+\numm\newcommand{\x10}[1]{x ten (#1)} \numm\newcommand{\x{10}}[1]{x ten (#1)}
+
+To use the macro defined via \numm just type the name followed by the
+<number>, optionally enclosed by { }.
+eg   \x10{abc}   \x{10}{abc}  \X"A{abc}   all produce "x ten (abc)".
+If the <number> is not surrounded by { }, the command name gobbles spaces
+
+If there has not been a definition corresponding to the <number>, then a
+default command is run, initially this produces an error message, but it
+can be redefined using `*' instead of a <number> thus after one of the
+above definitions \x2 would generate an error "\x2 is not defined"
+If a default definition for \x<number> is required, use a definition
+such as
+\numm\def\x*{the replacement text for x\N}
+Here \N stands for the value of the <number>, so now \x2 expands to
+"the replacement text for x2"
+eg:
+\numm\def\poly1{degenerate case (n=1)} \numm\def\poly2{degenerate case (n=2)}
+\numm\def\poly3{triangle}              \numm\def\poly4{quadrilateral}
+\numm\def\poly*{$\N$-gon}
+
+Note that this example could more easily be achieved by
+\def\poly#1{\ifcase #1\or degenerate case (n=1) \or ...\else $#1$-gon\fi}
+
+\numm is only really useful if one needs to have an `array' of macros and
+need to update the definition of one macro in the array without altering
+the expansions of the others.
+
+Warning, if you use the * form to define a macro with arguments, make sure
+that any macro that might change the value of \N is kept local to a { } group
+eg
+\numm\def\z1{NOW}   \numm\def\y*#1{N is \N, #1\  N is \N}
+
+\y3{\z1}  % produces "N is 3 NOW N is 1"  \z1 has made \N be 1
+\y3{{\z1}}% produces "N is 3 NOW N is 3"  changes to \N are local to a group.
+
